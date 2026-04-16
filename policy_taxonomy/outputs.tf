@@ -27,3 +27,13 @@ output "policy_tag_names" {
   description = "Map of human-readable paths to policy tag resource names"
   value       = local.policy_tag_paths
 }
+
+output "data_policy_ids" {
+  description = "Map of data masking policy IDs — only government_id and financial_personal carry masking rules"
+  value = {
+    government_id_hash       = try(google_bigquery_datapolicy_data_policy.transform_masking["government_id"].id, null)
+    government_id_null       = try(google_bigquery_datapolicy_data_policy.null_masking["government_id"].id, null)
+    financial_personal_last4 = try(google_bigquery_datapolicy_data_policy.transform_masking["financial_personal"].id, null)
+    financial_personal_null  = try(google_bigquery_datapolicy_data_policy.null_masking["financial_personal"].id, null)
+  }
+}
