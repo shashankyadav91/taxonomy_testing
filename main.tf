@@ -8,8 +8,12 @@ locals {
   hvr_sa      = "serviceAccount:addv1-tdata-hvr-sa@${local.project_id}.iam.gserviceaccount.com"
   fivetran_sa = "serviceAccount:addv1-tdata-fivetran-sa@${local.project_id}.iam.gserviceaccount.com"
 
-  # LDAP Groups
-  dataengineering_eng_grp = "group:it-dataengineering-eng@autozone.com"
+  # LDAP Groups — add group strings here once AD group requirements are confirmed.
+  # Example: "group:it-dataengineering-eng@autozone.com"
+  government_id_hash_members       = []
+  government_id_null_members       = []
+  financial_personal_last4_members = []
+  financial_personal_null_members  = []
 
   # Policy taxonomy configuration
   taxonomy_location      = "us"
@@ -18,19 +22,19 @@ locals {
   taxonomy_admin_members = [local.dataengineering_eng_grp]
 
   policy_tags = {
-    public = {
-      display_name = "public"
-      description  = "Publicly shareable data"
-    }
-
     internal = {
       display_name = "internal"
       description  = "Internal non-public data"
     }
 
-    confidential = {
-      display_name = "confidential"
-      description  = "Confidential enterprise data"
+    strategic = {
+      display_name = "strategic"
+      description  = "Strategic business data — plans, pricing, and forward-looking information"
+    }
+
+    private-restricted = {
+      display_name = "private-restricted"
+      description  = "Highly restricted data requiring explicit access controls — regulated and payment data"
     }
 
     personal_data = {
@@ -71,7 +75,7 @@ locals {
     business_sensitive = {
       display_name = "business_sensitive"
       description  = "Sensitive business information"
-      parent_key   = "confidential"
+      parent_key   = "strategic"
     }
 
     pricing = {
@@ -94,25 +98,13 @@ locals {
 
     regulated = {
       display_name = "regulated"
-      description  = "Regulated data classes"
-      parent_key   = "confidential"
+      description  = "Regulated data classes — column-level controls for payment and identity data"
+      parent_key   = "private-restricted"
     }
 
     pci = {
       display_name = "pci"
       description  = "Payment card related data"
-      parent_key   = "regulated"
-    }
-
-    gdpr_special_category = {
-      display_name = "gdpr_special_category"
-      description  = "GDPR special category data"
-      parent_key   = "regulated"
-    }
-
-    sox = {
-      display_name = "sox"
-      description  = "SOX-controlled finance data"
       parent_key   = "regulated"
     }
   }
@@ -152,6 +144,15 @@ module "enterprise_policy_taxonomy" {
   taxonomy_description   = local.taxonomy_description
   taxonomy_admin_members = local.taxonomy_admin_members
   policy_tags            = local.policy_tags
+
+  # Masking policy memberships
+  # government_id: engineers can join on hashed SSN; all others get NULL
+  government_id_hash_members = local.government_id_hash_members
+  government_id_null_members = local.government_id_null_members
+
+  # financial_personal: last 4 digits for authorized finance group; null for everyone else
+  financial_personal_last4_members = local.financial_personal_last4_members
+  financial_personal_null_members  = local.financial_personal_null_members
 }
 
 output "taxonomy_id" {
@@ -167,4 +168,9 @@ output "taxonomy_name" {
 output "policy_tag_names" {
   description = "Map of policy tag display paths to Data Catalog policy tag names"
   value       = module.enterprise_policy_taxonomy.policy_tag_names
+}
+
+output "data_policy_ids" {
+  description = "Map of all data masking policy IDs created for this project"
+  value       = module.enterprise_policy_taxonomy.data_policy_ids
 }
